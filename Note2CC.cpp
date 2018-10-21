@@ -12,6 +12,8 @@ MIDI Processor AU
 #define kNoteOff 0x80
 #define kControlChange 0xb0
 
+using namespace std;
+
 static const int kMIDIPacketListSize = 2048;
 
 AUDIOCOMPONENT_ENTRY(AUMIDIEffectFactory, Note2CC)
@@ -35,6 +37,19 @@ static const CFStringRef kParamName_CC = CFSTR("CC: ");
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Note2CC::Note2CC(AudioUnit component) : AUMIDIEffectBase(component), mOutputPacketFIFO(LockFreeFIFO<MIDIPacket>(32))
 {
+#ifdef DEBUG_PRINT
+    string bPath, bFullFileName;
+    bPath = getenv("HOME");
+    if (!bPath.empty()) {
+        bFullFileName = bPath + "/Desktop/" + "Debug.log";
+    } else {
+        bFullFileName = "Debug.log";
+    }
+    
+    baseDebugFile.open(bFullFileName.c_str());
+    DEBUGLOG_B("Plug-in constructor invoked with parameters:" << endl);
+#endif
+    
 	CreateElements();
     
     Globals()->UseIndexedParameters(kNumberOfParameters);
@@ -53,6 +68,12 @@ OSStatus            Note2CC::GetParameterInfo(        AudioUnitScope            
                                                AudioUnitParameterID            inParameterID,
                                                AudioUnitParameterInfo &        outParameterInfo)
 {
+    
+#ifdef DEBUG_PRINT
+    DEBUGLOG_B("GetParameterInfo - inScope: " << inScope << endl);
+    DEBUGLOG_B("GetParameterInfo - inParameterID: " << inParameterID << endl);
+#endif
+    
     if (inScope != kAudioUnitScope_Global) return kAudioUnitErr_InvalidScope;
     
     outParameterInfo.flags += kAudioUnitParameterFlag_IsWritable;
@@ -64,6 +85,7 @@ OSStatus            Note2CC::GetParameterInfo(        AudioUnitScope            
             outParameterInfo.unit = kAudioUnitParameterUnit_Indexed;
             outParameterInfo.minValue = 1;
             outParameterInfo.maxValue = 16;
+            outParameterInfo.defaultValue = 1;
             break;
         case kParameter_CC:
             AUBase::FillInParameterName(outParameterInfo, kParamName_CC,
@@ -71,6 +93,7 @@ OSStatus            Note2CC::GetParameterInfo(        AudioUnitScope            
             outParameterInfo.unit = kAudioUnitParameterUnit_MIDINoteNumber;
             outParameterInfo.minValue = 1;
             outParameterInfo.maxValue = 127;
+            outParameterInfo.defaultValue = 48;
             break;
         case kParameter_Note:
             AUBase::FillInParameterName(outParameterInfo, kParamName_Note,
@@ -78,6 +101,7 @@ OSStatus            Note2CC::GetParameterInfo(        AudioUnitScope            
             outParameterInfo.unit = kAudioUnitParameterUnit_Indexed;
             outParameterInfo.minValue = 1;
             outParameterInfo.maxValue = 127;
+            outParameterInfo.defaultValue = 1;
             break;
         default:
             return kAudioUnitErr_InvalidParameter;
@@ -164,6 +188,15 @@ OSStatus Note2CC::SetProperty(	AudioUnitPropertyID inID, AudioUnitScope inScope,
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 OSStatus Note2CC::HandleMidiEvent(UInt8 status, UInt8 channel, UInt8 data1, UInt8 data2, UInt32 inOffsetSampleFrame)
 {
+    // data1 : note number, data2 : velocity
+    
+#ifdef DEBUG_PRINT
+    DEBUGLOG_B("HandleMidiEvent - status:"
+               << (int)status << " ch:" << (int)channel << "/"
+               << (Globals()->GetParameter(kParameter_Ch) - 1)
+               << " data1:" << (int)data1 << " data2:" << (int)data2 << endl);
+#endif
+    
     if (!IsInitialized()) return kAudioUnitErr_Uninitialized;
   
     MIDIPacket* packet = mOutputPacketFIFO.WriteItem();

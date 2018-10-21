@@ -14,6 +14,16 @@ MIDI Processor AU
 #include "AUMIDIEffectBase.h"
 #include "LockFreeFIFO.h"
 
+#ifdef DEBUG_PRINT
+#include <fstream>
+#include <ctime>
+#define DEBUGLOG_B(x) \
+if (baseDebugFile.is_open()) baseDebugFile << x
+#else
+#define DEBUGLOG_B(x)
+#endif
+
+using namespace std;
 
 #pragma mark - Note2CC
 class Note2CC : public AUMIDIEffectBase
@@ -44,6 +54,10 @@ private:
   
     LockFreeFIFO<MIDIPacket> mOutputPacketFIFO;
   
+protected:
+#ifdef DEBUG_PRINT
+    ofstream baseDebugFile;
+#endif
 };
 
 #endif
